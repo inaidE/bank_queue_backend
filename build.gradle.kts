@@ -4,6 +4,7 @@ plugins {
 	id("org.springframework.boot") version "3.5.0"
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "1.9.25"
+	id("org.flywaydb.flyway") version "9.16.0"
 }
 
 group = "com.bankqueue"
@@ -13,6 +14,13 @@ java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(17)
 	}
+}
+
+flyway {
+	url      = "jdbc:postgresql://localhost:${findProperty("DB_PORT") ?: 5432}/${findProperty("POSTGRES_DB")}"
+	user     = findProperty("POSTGRES_USER") as String
+	password = findProperty("POSTGRES_PASSWORD") as String
+	locations = arrayOf("classpath:db/migration")
 }
 
 repositories {
