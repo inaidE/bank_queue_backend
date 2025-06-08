@@ -28,6 +28,8 @@ repositories {
 }
 
 dependencies {
+	implementation("com.vladmihalcea:hibernate-types-60:2.20.0")
+	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")
