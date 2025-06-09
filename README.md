@@ -14,3 +14,10 @@
    ```bash
    https://github.com/inaidE/bank_queue_backend.git
    ```
+
+2. Добавьте системные переменные `SPRING_DATASOURCE_PASSWORD`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_URL` в конфигурацию run
+
+3. Запустите проект и проверьте его состояние в терминале через 
+   ```bash
+   http://localhost:8081/actuator/health
+   ```

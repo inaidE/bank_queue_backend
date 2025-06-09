@@ -7,10 +7,6 @@ import java.time.OffsetDateTime
 @Table(name = "tickets")
 class Ticket(
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long,
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
         name = "user_id", nullable = false,
@@ -30,4 +26,8 @@ class Ticket(
     @Column(name = "scheduled_at", nullable = false)
     var scheduledAt: OffsetDateTime
 
-)
+){
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Long? = null
+}
