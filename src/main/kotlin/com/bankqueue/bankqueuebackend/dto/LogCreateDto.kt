@@ -1,4 +1,6 @@
 package com.bankqueue.bankqueuebackend.dto
 
-class LogCreateDto {
-}
+data class LogCreateDto(
+    val eventType: String,
+    val details: Map<String, Any>
+)

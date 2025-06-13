@@ -2,7 +2,7 @@ package com.bankqueue.bankqueuebackend.dto
 
 import com.bankqueue.bankqueuebackend.model.Ticket
 
-/** Entity → DTO */
+/** Entity -> DTO */
 fun Ticket.toResponseDto() = TicketResponseDto(
     id = this.id,
     userId = this.user.id,

@@ -1,5 +1,6 @@
 package com.bankqueue.bankqueuebackend.service
 
+import com.bankqueue.bankqueuebackend.dto.LogCreateDto
 import com.bankqueue.bankqueuebackend.dto.TicketCreateDto
 import com.bankqueue.bankqueuebackend.dto.TicketResponseDto
 import com.bankqueue.bankqueuebackend.dto.TicketUpdateDto
@@ -15,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class TicketService(
     private val ticketRepository: TicketRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val logService: LogService
 ) {
 
     /** Получить все тикеты */
@@ -76,6 +78,15 @@ class TicketService(
         )
         val saved = ticketRepository.save(entity)
 
+        logService.createLog(
+            userLogin = user.login,
+            dto = LogCreateDto(
+                eventType = "TICKET_CREATED",
+                details   = mapOf("userId" to user.id!!,
+                                  "ticketId" to saved.id!!)
+            )
+        )
+
         // 7. возвращаем DTO
         return saved.toResponseDto()
     }
@@ -83,6 +94,9 @@ class TicketService(
     /** Частично обновить тикет */
     @Transactional
     fun updateForUser(userLogin: String, id: Long, dto: TicketUpdateDto): TicketResponseDto {
+        val user = userRepository.findByLogin(userLogin)
+            ?: throw EntityNotFoundException("User '$userLogin' not found")
+
         val ticket = ticketRepository.findByIdAndUserLogin(id, userLogin)
             ?: throw AccessDeniedException("Ticket $id not found or not yours")
 
@@ -104,14 +118,36 @@ class TicketService(
         }
 
         val updated = ticketRepository.save(ticket)
+
+        logService.createLog(
+            userLogin = user.login,
+            dto = LogCreateDto(
+                eventType = "TICKET_UPDATED",
+                details   = mapOf("userId" to user.id!!,
+                                  "ticketId" to updated.id!!)
+            )
+        )
+
         return updated.toResponseDto()
     }
 
     /** Удаление тикета */
     @Transactional
     fun deleteForUser(userLogin: String, id: Long) {
+        val user = userRepository.findByLogin(userLogin)
+            ?: throw EntityNotFoundException("User '$userLogin' not found")
+
         val ticket = ticketRepository.findByIdAndUserLogin(id, userLogin)
             ?: throw AccessDeniedException("Ticket $id not found or not yours")
         ticketRepository.delete(ticket)
+
+        logService.createLog(
+            userLogin = user.login,
+            dto = LogCreateDto(
+                eventType = "TICKET_DELETED",
+                details   = mapOf("userId" to user.id!!,
+                                  "ticketId" to ticket.id!!)
+            )
+        )
     }
 }

@@ -9,7 +9,7 @@ import org.hibernate.annotations.BatchSize
 class User (
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long,
+    var id: Long? = null,
 
     @Column(nullable = false)
     var name: String,

@@ -1,16 +1,16 @@
 package com.bankqueue.bankqueuebackend.dto
 
-import java.time.OffsetDateTime
+import jakarta.validation.constraints.Future
 import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.NotNull
+import java.time.OffsetDateTime
 
 data class TicketCreateDto(
-    @field:NotBlank(message = "address не может быть пустым")
+    @field:NotBlank(message = "Адрес не может быть пустым")
     val address: String,
 
-    @field:NotBlank(message = "ticketType не может быть пустым")
+    @field:NotBlank(message = "Тип талона не может быть пустым")
     val ticketType: String,
 
-    @field:NotNull(message = "scheduledAt обязателен")
+    @field:Future(message = "Время должно быть в будущем")
     val scheduledAt: OffsetDateTime
 )
