@@ -21,3 +21,4 @@
    ```bash
    http://localhost:8081/actuator/health
    ```
+4. Для тестирования через `swagger-ui` http://localhost:8081/swagger-ui/index.html
