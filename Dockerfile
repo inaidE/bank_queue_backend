@@ -27,6 +27,7 @@ COPY --chown=gradle:gradle gradle ./gradle
 
 # 8) Копируем build-скрипты и исходники, назначая gradle:gradle
 COPY --chown=gradle:gradle build.gradle.kts settings.gradle.kts ./
+COPY --chown=gradle:gradle gradle.properties ./
 COPY --chown=gradle:gradle src ./src
 
 # 9) Запускаем сборку через Gradle Wrapper
