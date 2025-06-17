@@ -1,10 +1,6 @@
 package com.bankqueue.bankqueuebackend.service
 
-import com.bankqueue.bankqueuebackend.dto.LogCreateDto
-import com.bankqueue.bankqueuebackend.dto.TicketCreateDto
-import com.bankqueue.bankqueuebackend.dto.TicketResponseDto
-import com.bankqueue.bankqueuebackend.dto.TicketUpdateDto
-import com.bankqueue.bankqueuebackend.dto.toResponseDto
+import com.bankqueue.bankqueuebackend.dto.*
 import com.bankqueue.bankqueuebackend.model.Ticket
 import com.bankqueue.bankqueuebackend.repository.TicketRepository
 import com.bankqueue.bankqueuebackend.repository.UserRepository
@@ -25,6 +21,16 @@ class TicketService(
     fun getAll(): List<TicketResponseDto> =
         ticketRepository.findAll()
             .map { it.toResponseDto() }
+
+
+    /** Получить тикет по id */
+    @Transactional(readOnly = true)
+    fun getByIdForUser(userLogin: String, ticketId: Long): TicketResponseDto {
+        // найдём тикет только если он принадлежит текущему пользователю
+        val ticket = ticketRepository.findByIdAndUserLogin(ticketId, userLogin)
+            ?: throw AccessDeniedException("Ticket $ticketId not found or not yours")
+        return ticket.toResponseDto()
+    }
 
 
 

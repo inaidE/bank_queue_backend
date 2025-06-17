@@ -29,7 +29,14 @@ class TicketController(
         return ResponseEntity.ok(tickets)
     }
 
-
+    @GetMapping("/{id}")
+    fun getTicketById(
+        @AuthenticationPrincipal principal: UserDetails,
+        @PathVariable id: Long
+    ): ResponseEntity<TicketResponseDto> {
+        val dto = ticketService.getByIdForUser(principal.username, id)
+        return ResponseEntity.ok(dto)
+    }
 
     /**
      * Создать новый тикет за текущего пользователя
