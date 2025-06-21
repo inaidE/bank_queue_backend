@@ -19,8 +19,7 @@ spring:
       name: ${SECURITY_USERNAME}
       password: ${SECURITY_PASSWORD}
 
-server:
-  port: 8081
+
 
 management:
   endpoints:
