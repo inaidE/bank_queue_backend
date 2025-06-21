@@ -21,33 +21,44 @@ class JwtTokenFilter(
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
-        // Логируем заголовок для отладки
+        val path = request.servletPath
+
+        // Здесь — единый список всех публичных URL-ов
+        val publicPaths = listOf(
+            "/auth/login",
+            "/api/users/register",
+            "/swagger-ui.html",
+            "/swagger-ui/index.html",
+            "/swagger-ui/",       // для ресурсов
+            "/v3/api-docs",       // OpenAPI JSON
+            "/v3/api-docs/"       // и для подпутей
+        )
+
+        // Если путь начинается с любого публичного — пропускаем
+        if (publicPaths.any { path.startsWith(it) }) {
+            filterChain.doFilter(request, response)
+            return
+        }
+
+        // иначе — стандартная JWT-валидация
         val header = request.getHeader("Authorization")
-        logger.info(">>> Authorization header: $header")
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Missing or invalid Authorization header")
+            return
+        }
 
-        header
-            ?.takeIf { it.startsWith("Bearer ") }
-            ?.substringAfter("Bearer ")
-            ?.let { token ->
-                // Проверяем токен
-                val valid = jwtTokenProvider.validateToken(token)
-                logger.info(">>> Token valid? $valid")
-                if (valid) {
-                    // Извлекаем username и загружаем UserDetails
-                    val username = jwtTokenProvider.getUsername(token)
-                    logger.info(">>> Token username: $username")
-                    val userDetails = userDetailsService.loadUserByUsername(username)
+        val token = header.substringAfter("Bearer ")
+        if (!jwtTokenProvider.validateToken(token)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid or expired JWT token")
+            return
+        }
 
-                    // Создаём Authentication и сохраняем в контекст
-                    val auth = UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.authorities
-                    )
-                    SecurityContextHolder.getContext().authentication = auth
-                    logger.info(">>> Authentication set in context: $auth")
-                }
-            }
+        val username = jwtTokenProvider.getUsername(token)
+        val userDetails = userDetailsService.loadUserByUsername(username)
+        val auth = UsernamePasswordAuthenticationToken(userDetails, null, userDetails.authorities)
+        SecurityContextHolder.getContext().authentication = auth
 
-        // Продолжаем цепочку фильтров
+        // и только после всего — пропускаем дальше
         filterChain.doFilter(request, response)
     }
 }
