@@ -8,6 +8,7 @@ import jakarta.persistence.EntityNotFoundException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.temporal.ChronoUnit
 
 @Service
 class TicketService(
@@ -54,33 +55,35 @@ class TicketService(
     /** Создать новый тикет */
     @Transactional
     fun createForUser(userLogin: String, dto: TicketCreateDto): TicketResponseDto {
-        // 1. находим пользователя
         val user = userRepository.findByLogin(userLogin)
             ?: throw EntityNotFoundException("User '$userLogin' not found")
 
-        // 2. определяем префикс
+        // Обрезаем до минут
+        val atMinute = dto.scheduledAt.truncatedTo(ChronoUnit.MINUTES)
+
+        // Проверяем дубль
+        if (ticketRepository.existsByAddressAndScheduledAt(dto.address, atMinute)) {
+            throw IllegalStateException("Тикет на адрес '${dto.address}' и время '$atMinute' уже существует")
+        }
+
+        // остальная логика номер-генерации...
         val prefix = prefixMap[dto.ticketType]
             ?: throw IllegalArgumentException("Unknown ticketType ${dto.ticketType}")
-
-        // 3. берём максимальный существующий код вида "В123"
         val maxCode = ticketRepository.findMaxTicketCodeByType(dto.ticketType)
-        // 4. парсим номер и увеличиваем
         val nextNumber = maxCode
             ?.substring(1)
             ?.toIntOrNull()
             ?.plus(1)
-            ?: 1  // если записей ещё нет — начинаем с 1
-
-        // 5. собираем итоговый код
+            ?: 1
         val ticketCode = "$prefix$nextNumber"
 
-        // 6. создаём и сохраняем сущность
+
         val entity = Ticket(
             user        = user,
             address     = dto.address,
             ticketType  = dto.ticketType,
             ticket      = ticketCode,
-            scheduledAt = dto.scheduledAt
+            scheduledAt = atMinute
         )
         val saved = ticketRepository.save(entity)
 
@@ -88,12 +91,10 @@ class TicketService(
             userLogin = user.login,
             dto = LogCreateDto(
                 eventType = "TICKET_CREATED",
-                details   = mapOf("userId" to user.id!!,
-                                  "ticketId" to saved.id!!)
+                details   = mapOf("userId" to user.id!!, "ticketId" to saved.id!!)
             )
         )
 
-        // 7. возвращаем DTO
         return saved.toResponseDto()
     }
 
@@ -106,9 +107,19 @@ class TicketService(
         val ticket = ticketRepository.findByIdAndUserLogin(id, userLogin)
             ?: throw AccessDeniedException("Ticket $id not found or not yours")
 
-        // Если меняется адрес или время – просто присваиваем
-        dto.address?.let    { ticket.address     = it }
-        dto.scheduledAt?.let{ ticket.scheduledAt = it }
+        dto.scheduledAt?.let { raw ->
+            val atMinute = raw.truncatedTo(ChronoUnit.MINUTES)
+            // если адрес тоже меняется — используем новый, иначе старый
+            val addr = dto.address ?: ticket.address
+            if (ticketRepository.existsByAddressAndScheduledAt(addr, atMinute)) {
+                throw IllegalStateException("Тикет на этот адрес и время уже существует")
+            }
+            ticket.scheduledAt = atMinute
+        }
+        dto.address?.let {
+            // если время не менялось, тоже стоило бы повторно проверять дубль
+            ticket.address = it
+        }
 
         // Если меняется тип – пересоздаём ticket-код
         dto.ticketType?.let {
