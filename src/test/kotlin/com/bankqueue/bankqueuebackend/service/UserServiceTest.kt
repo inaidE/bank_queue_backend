@@ -1,0 +1,236 @@
+package com.bankqueue.bankqueuebackend.service
+
+import com.bankqueue.bankqueuebackend.dto.ChangePasswordDto
+import com.bankqueue.bankqueuebackend.dto.LogCreateDto
+import com.bankqueue.bankqueuebackend.dto.UserCreateDto
+import com.bankqueue.bankqueuebackend.dto.UserUpdateDto
+import com.bankqueue.bankqueuebackend.model.User
+import com.bankqueue.bankqueuebackend.repository.UserRepository
+import jakarta.persistence.EntityNotFoundException
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.InjectMocks
+import org.mockito.Mock
+import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import org.springframework.security.crypto.password.PasswordEncoder
+
+@ExtendWith(MockitoExtension::class)
+class UserServiceTest {
+
+    @Mock private lateinit var userRepository: UserRepository
+    @Mock private lateinit var passwordEncoder: PasswordEncoder
+    @Mock private lateinit var logService: LogService
+    @InjectMocks private lateinit var userService: UserService
+
+    @Test
+    fun find_user_by_login() {
+        // GIVEN
+        val user = User(
+            id = 1L,
+            name = "Владимир",
+            login = "vladimir",
+            email = "vladimir@gmail.com",
+            encryptedPassword = "hash",
+            phoneNumber = "+79000000000"
+        )
+        whenever(userRepository.findByLogin("vladimir")).thenReturn(user)
+
+        // WHEN
+        val dto = userService.getForLogin("vladimir")
+
+        // THEN
+        assertEquals(user.id, dto.id)
+        assertEquals(user.name, dto.name)
+        assertEquals(user.login, dto.login)
+        assertEquals(user.email, dto.email)
+        assertEquals(user.phoneNumber, dto.phoneNumber)
+    }
+    @Test
+    fun find_user_byEmail() {
+        val user = User(
+                id = 1L,
+        name = "Владимир",
+        login = "vladimir",
+        email = "vladimir@gmail.com",
+        encryptedPassword = "hash",
+        phoneNumber = "+79000000000"
+        )
+        whenever(userRepository.findByEmail("vladimir@gmail.com")).thenReturn(user)
+        val dto = userRepository.findByEmail("vladimir@gmail.com")
+
+        assertEquals(user.id, dto?.id)
+        assertEquals(user.name, dto?.name)
+        assertEquals(user.login, dto?.login)
+        assertEquals(user.email, dto?.email)
+        assertEquals(user.phoneNumber, dto?.phoneNumber)
+    }
+
+    @Test
+    fun find_user_by_login_not_found_throws() {
+        // GIVEN
+        whenever(userRepository.findByLogin("stanislav29")).thenReturn(null)
+
+        // WHEN / THEN
+        assertThrows<EntityNotFoundException> {
+            userService.getForLogin("stanislav29")
+        }
+    }
+
+    @Test
+    fun register_duplicate_login_throws() {
+        // GIVEN
+        val req = UserCreateDto(
+            name = "Пётр",
+            login = "petr",
+            email = "petr@example.com",
+            password = "pass",
+            phoneNumber = "+70001112233"
+        )
+        whenever(userRepository.findByLogin("petr"))
+            .thenReturn(User(2L, "Пётр", "petr", "x@e", "h", "+7"))
+
+        // WHEN / THEN
+        assertThrows<IllegalArgumentException> {
+            userService.register(req)
+        }
+    }
+
+    @Test
+    fun register_duplicate_email_throws() {
+        // GIVEN
+        val req = UserCreateDto("Ирина", "irina", "irina@e.com", "pw", "+70009998877")
+        whenever(userRepository.findByLogin("irina")).thenReturn(null)
+        whenever(userRepository.findByEmail("irina@e.com"))
+            .thenReturn(User(3L, "Ирина", "x", "irina@e.com", "h", "+7"))
+
+        // WHEN / THEN
+        assertThrows<IllegalArgumentException> {
+            userService.register(req)
+        }
+    }
+
+    @Test
+    fun register_new_user_succeeds_and_logs() {
+        // GIVEN
+        val req = UserCreateDto("Анна", "anna", "anna@e.com", "pwd", "+79001234567")
+        whenever(userRepository.findByLogin("anna")).thenReturn(null)
+        whenever(userRepository.findByEmail("anna@e.com")).thenReturn(null)
+        whenever(passwordEncoder.encode("pwd")).thenReturn("ENC")
+
+        val saved = User(10L, "Анна", "anna", "anna@e.com", "ENC", "+79001234567")
+        whenever(userRepository.save(any())).thenReturn(saved)
+
+        // WHEN
+        val dto = userService.register(req)
+
+        // THEN
+        assertEquals(10L, dto.id)
+        assertEquals("Анна", dto.name)
+
+        val cap = argumentCaptor<LogCreateDto>()
+        verify(logService).createLog(eq("anna"), cap.capture())
+        assertEquals("USER_REGISTERED", cap.firstValue.eventType)
+        assertEquals(mapOf("userId" to 10L), cap.firstValue.details)
+    }
+
+    @Test
+    fun update_existing_user_succeeds_and_logs() {
+        // GIVEN
+        val existing = User(5L, "OldName", "user5", "u5@e", "h", "+7000")
+        whenever(userRepository.findByLogin("user5")).thenReturn(existing)
+
+        val req = UserUpdateDto(name = "NewName", email = "new@e", phoneNumber = "+7111")
+        val updated = User(5L, "NewName", "user5", "new@e", "h", "+7111")
+        whenever(userRepository.save(any())).thenReturn(updated)
+
+        // WHEN
+        val dto = userService.updateForLogin("user5", req)
+
+        // THEN
+        assertEquals("NewName", dto.name)
+        assertEquals("new@e", dto.email)
+
+        val cap = argumentCaptor<LogCreateDto>()
+        verify(logService).createLog(eq("user5"), cap.capture())
+        assertEquals("USER_UPDATED", cap.firstValue.eventType)
+    }
+
+    @Test
+    fun delete_existing_user_succeeds_and_logs() {
+        // GIVEN
+        val user = User(7L, "Zoya", "zoya", "z@e", "h", "+7999")
+        whenever(userRepository.findByLogin("zoya")).thenReturn(user)
+
+        // WHEN
+        userService.deleteForLogin("zoya")
+
+        // THEN
+        verify(userRepository).delete(user)
+        val cap = argumentCaptor<LogCreateDto>()
+        verify(logService).createLog(eq("zoya"), cap.capture())
+        assertEquals("USER_DELETED", cap.firstValue.eventType)
+    }
+
+    @Test
+    fun delete_user_not_found_throws() {
+        // GIVEN
+        whenever(userRepository.findByLogin("noone")).thenReturn(null)
+
+        // WHEN / THEN
+        assertThrows<EntityNotFoundException> {
+            userService.deleteForLogin("noone")
+        }
+    }
+
+    @Test
+    fun change_password_mismatch_confirmation_throws() {
+        // GIVEN
+        val dto = ChangePasswordDto("old", "new1", "new2")
+
+        // WHEN / THEN
+        assertThrows<IllegalArgumentException> {
+            userService.changePassword("any", dto)
+        }
+    }
+
+    @Test
+    fun change_password_wrong_current_throws() {
+        // GIVEN
+        val user = User(8L, "U8", "u8", "u8@e", "HASH", "+7000")
+        whenever(userRepository.findByLogin("u8")).thenReturn(user)
+        whenever(passwordEncoder.matches("wrong", "HASH")).thenReturn(false)
+        val dto = ChangePasswordDto("wrong", "new", "new")
+
+        // WHEN / THEN
+        assertThrows<IllegalArgumentException> {
+            userService.changePassword("u8", dto)
+        }
+    }
+
+    @Test
+    fun change_password_success_and_logs() {
+        // GIVEN
+        val user = User(9L, "U9", "u9", "u9@e", "HASH1", "+7000")
+        whenever(userRepository.findByLogin("u9")).thenReturn(user)
+        whenever(passwordEncoder.matches("old", "HASH1")).thenReturn(true)
+        whenever(passwordEncoder.encode("new")).thenReturn("HASH2")
+
+        val saved = User(9L, "U9", "u9", "u9@e", "HASH2", "+7000")
+        whenever(userRepository.save(any())).thenReturn(saved)
+
+        // WHEN
+        userService.changePassword("u9", ChangePasswordDto("old", "new", "new"))
+
+        // THEN
+        val cap = argumentCaptor<LogCreateDto>()
+        verify(logService).createLog(eq("u9"), cap.capture())
+        assertEquals("USER_PASSWORD_UPDATED", cap.firstValue.eventType)
+    }
+}

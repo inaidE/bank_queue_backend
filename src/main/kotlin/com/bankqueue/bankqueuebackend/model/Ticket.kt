@@ -5,7 +5,7 @@ import java.time.OffsetDateTime
 
 @Entity
 @Table(name = "tickets")
-class Ticket(
+data class Ticket(
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(

@@ -23,3 +23,8 @@
    http://localhost:8081/actuator/health
    ```
 4. Для тестирования через `swagger-ui` http://localhost:8081/swagger-ui/index.html
+
+5. Для тестирования через JUnit тесты
+   ```bash
+   ./gradlew test
+   ```
