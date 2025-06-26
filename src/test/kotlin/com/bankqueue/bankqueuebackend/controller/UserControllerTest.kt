@@ -27,7 +27,6 @@ import org.springframework.web.context.request.NativeWebRequest
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.method.support.ModelAndViewContainer
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
-import java.security.Principal
 import org.springframework.core.MethodParameter
 
 @WebMvcTest(
@@ -50,6 +49,11 @@ class UserControllerTest {
     @MockBean
     private lateinit var userService: UserService
 
+    /**
+     * Сценарий: новый пользователь регистрируется через POST /api/users/register,
+     * сервис возвращает данные созданного пользователя,
+     * контроллер устанавливает заголовок Location = "/api/users/me" и возвращает HTTP 201.
+     */
     @Test
     fun `POST register returns 201 with user and Location header`() {
         val createDto = UserCreateDto(
@@ -78,6 +82,10 @@ class UserControllerTest {
             .andExpect(content().json(mapper.writeValueAsString(respDto)))
     }
 
+    /**
+     * Сценарий: авторизованный пользователь запрашивает свой профиль через GET /api/users/me,
+     * сервис возвращает UserResponseDto с данными пользователя, контроллер отдаёт HTTP 200.
+     */
     @Test
     @WithMockUser(username = "user1", roles = ["USER"])
     fun `GET me returns current user's profile`() {
@@ -96,8 +104,8 @@ class UserControllerTest {
     }
 
     /**
-     * Чтобы @AuthenticationPrincipal principal: UserDetails работал в тестах,
-     * регистрируем резолвер, который будет брать principal из SecurityContextHolder.
+     * Конфигурация: добавляем кастомный резолвер аргументов для UserDetails,
+     * чтобы @AuthenticationPrincipal работал в тестах и подставлял principal из SecurityContextHolder.
      */
     @TestConfiguration
     class UserDetailsResolverConfig : WebMvcConfigurer {

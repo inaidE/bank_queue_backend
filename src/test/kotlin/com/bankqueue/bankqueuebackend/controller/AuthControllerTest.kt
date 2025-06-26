@@ -40,27 +40,32 @@ class AuthControllerTest {
 
     private val mapper = jacksonObjectMapper()
 
+    /**
+     * Сценарий: успешный POST запрос к /auth/login с корректными учётными данными
+     * должен пройти аутентификацию и вернуть JSON с полем "token"
+     */
     @Test
     @DisplayName("POST /auth/login — успешно логинит и возвращает токен")
     fun `should login and return token`() {
         // DTO LoginRequest находится в том же пакете, что и контроллер
         val req = LoginRequest(username = "user1", password = "pass")
 
-        // Стандартный токен с правильно типизированными authorities
+        // Мокаем успешную аутентификацию в AuthenticationManager
         val fakeAuth = UsernamePasswordAuthenticationToken(
             "user1",
             null,
             emptyList<GrantedAuthority>()
         )
-
         `when`(
             authenticationManager.authenticate(any<UsernamePasswordAuthenticationToken>())
         ).thenReturn(fakeAuth)
 
+        // Мокаем выдачу JWT-токена
         `when`(
             jwtTokenProvider.createToken("user1")
         ).thenReturn("jwt-token-xyz")
 
+        // Выполняем POST и проверяем ответ
         mvc.perform(
             post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
