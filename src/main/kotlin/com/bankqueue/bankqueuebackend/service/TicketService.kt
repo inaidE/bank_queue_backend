@@ -74,7 +74,7 @@ class TicketService(
         val atMinute = dto.scheduledAt.truncatedTo(ChronoUnit.MINUTES)
 
         val mskTime = moscowLocalTime(dto.scheduledAt)
-        if (mskTime.hour < 8 || mskTime.hour >= 17) {
+        if (mskTime.hour < 8 || mskTime.hour > 17) {
             throw IllegalArgumentException(
                 "Время приёма может быть только с 08:00 до 17:00 (МСК), получено: $mskTime"
             )
@@ -113,7 +113,6 @@ class TicketService(
         return saved.toResponseDto()
     }
 
-    /** Частично обновить тикет */
     @Transactional
     fun updateForUser(userLogin: String, id: Long, dto: TicketUpdateDto): TicketResponseDto {
         val user = userRepository.findByLogin(userLogin)
@@ -123,14 +122,16 @@ class TicketService(
 
         dto.scheduledAt?.let { raw ->
             val atMinute = raw.truncatedTo(ChronoUnit.MINUTES)
-            val mskTime = moscowLocalTime(atMinute)
+            val mskTime = moscowLocalTime(raw)  // лучше сразу из raw
             if (mskTime.hour < 8 || mskTime.hour >= 17) {
                 throw IllegalArgumentException(
                     "Время приёма может быть только с 08:00 до 17:00 (МСК), получено: $mskTime"
                 )
             }
             val addr = dto.address ?: ticket.address
-            if (ticketRepository.existsByAddressAndScheduledAt(addr, atMinute)) {
+            if (ticketRepository
+                    .existsByAddressAndScheduledAtAndIdNot(addr, atMinute, id)
+            ) {
                 throw IllegalStateException(
                     "Тикет на адрес '$addr' и время '$mskTime' уже существует"
                 )
@@ -141,7 +142,9 @@ class TicketService(
         dto.address?.let { newAddr ->
             val atMinute = ticket.scheduledAt.truncatedTo(ChronoUnit.MINUTES)
             val mskTime = moscowLocalTime(ticket.scheduledAt)
-            if (ticketRepository.existsByAddressAndScheduledAt(newAddr, atMinute)) {
+            if (ticketRepository
+                    .existsByAddressAndScheduledAtAndIdNot(newAddr, atMinute, id)
+            ) {
                 throw IllegalStateException(
                     "Тикет на адрес '$newAddr' и время '$mskTime' уже существует"
                 )
