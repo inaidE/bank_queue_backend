@@ -22,8 +22,6 @@ import org.springframework.security.test.context.support.WithMockUser
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
-import org.springframework.validation.DataBinder
-import org.springframework.web.bind.WebDataBinder
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
@@ -51,6 +49,10 @@ class TicketControllerTest {
     @MockBean
     private lateinit var ticketService: TicketService
 
+    /**
+     * Сценарий: авторизованный пользователь запрашивает список своих тикетов
+     * и получает JSON-массив TicketResponseDto с HTTP 200
+     */
     @Test
     @WithMockUser(username = "user1", roles = ["USER"])
     fun `GET my tickets returns list`() {
@@ -70,6 +72,10 @@ class TicketControllerTest {
             .andExpect(content().json(mapper.writeValueAsString(listOf(dto))))
     }
 
+    /**
+     * Сценарий: авторизованный пользователь создаёт новый тикет через POST /api/tickets,
+     * сервис возвращает DTO созданного тикета, контроллер ставит Location и отдаёт HTTP 201
+     */
     @Test
     @WithMockUser(username = "user1", roles = ["USER"])
     fun `POST create ticket returns 201 and Location header`() {
@@ -120,7 +126,7 @@ class TicketControllerTest {
             webRequest: NativeWebRequest,
             binderFactory: WebDataBinderFactory?
         ): Any? {
-            // Здесь берем principal из SecurityContext, его установит @WithMockUser
+            // Берём principal из SecurityContext, его устанавливает @WithMockUser
             return SecurityContextHolder.getContext().authentication?.principal
         }
     }

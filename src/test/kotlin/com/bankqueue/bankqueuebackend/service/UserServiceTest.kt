@@ -13,6 +13,8 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
+import org.mockito.Mockito
+import org.mockito.Mockito.lenient
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -29,6 +31,10 @@ class UserServiceTest {
     @Mock private lateinit var logService: LogService
     @InjectMocks private lateinit var userService: UserService
 
+    /**
+     * Сценарий: при запросе существующего пользователя по логину
+     * возвращаются корректные данные в UserResponseDto
+     */
     @Test
     fun find_user_by_login() {
         // GIVEN
@@ -52,26 +58,39 @@ class UserServiceTest {
         assertEquals(user.email, dto.email)
         assertEquals(user.phoneNumber, dto.phoneNumber)
     }
+
+    /**
+     * Сценарий: при запросе пользователя по email из репозитория
+     * возвращается правильная сущность User
+     */
     @Test
     fun find_user_byEmail() {
+        // GIVEN
         val user = User(
-                id = 1L,
-        name = "Владимир",
-        login = "vladimir",
-        email = "vladimir@gmail.com",
-        encryptedPassword = "hash",
-        phoneNumber = "+79000000000"
+            id = 1L,
+            name = "Владимир",
+            login = "vladimir",
+            email = "vladimir@gmail.com",
+            encryptedPassword = "hash",
+            phoneNumber = "+79000000000"
         )
         whenever(userRepository.findByEmail("vladimir@gmail.com")).thenReturn(user)
-        val dto = userRepository.findByEmail("vladimir@gmail.com")
 
-        assertEquals(user.id, dto?.id)
-        assertEquals(user.name, dto?.name)
-        assertEquals(user.login, dto?.login)
-        assertEquals(user.email, dto?.email)
-        assertEquals(user.phoneNumber, dto?.phoneNumber)
+        // WHEN
+        val result = userRepository.findByEmail("vladimir@gmail.com")
+
+        // THEN
+        assertEquals(user.id, result?.id)
+        assertEquals(user.name, result?.name)
+        assertEquals(user.login, result?.login)
+        assertEquals(user.email, result?.email)
+        assertEquals(user.phoneNumber, result?.phoneNumber)
     }
 
+    /**
+     * Сценарий: при запросе несуществующего пользователя по логину
+     * выбрасывается EntityNotFoundException
+     */
     @Test
     fun find_user_by_login_not_found_throws() {
         // GIVEN
@@ -83,6 +102,10 @@ class UserServiceTest {
         }
     }
 
+    /**
+     * Сценарий: регистрация с дублирующимся логином
+     * вызывает IllegalArgumentException
+     */
     @Test
     fun register_duplicate_login_throws() {
         // GIVEN
@@ -102,6 +125,10 @@ class UserServiceTest {
         }
     }
 
+    /**
+     * Сценарий: регистрация с дублирующимся email
+     * вызывает IllegalArgumentException
+     */
     @Test
     fun register_duplicate_email_throws() {
         // GIVEN
@@ -116,6 +143,10 @@ class UserServiceTest {
         }
     }
 
+    /**
+     * Сценарий: успешная регистрация нового пользователя,
+     * проверка сохранённых данных и логирования события
+     */
     @Test
     fun register_new_user_succeeds_and_logs() {
         // GIVEN
@@ -140,6 +171,10 @@ class UserServiceTest {
         assertEquals(mapOf("userId" to 10L), cap.firstValue.details)
     }
 
+    /**
+     * Сценарий: успешное обновление имени и email существующего пользователя
+     * с последующим логированием
+     */
     @Test
     fun update_existing_user_succeeds_and_logs() {
         // GIVEN
@@ -162,6 +197,10 @@ class UserServiceTest {
         assertEquals("USER_UPDATED", cap.firstValue.eventType)
     }
 
+    /**
+     * Сценарий: успешное удаление существующего пользователя
+     * с последующим логированием удаления
+     */
     @Test
     fun delete_existing_user_succeeds_and_logs() {
         // GIVEN
@@ -178,28 +217,49 @@ class UserServiceTest {
         assertEquals("USER_DELETED", cap.firstValue.eventType)
     }
 
+    /**
+     * Сценарий: попытка удаления несуществующего пользователя
+     * вызывает EntityNotFoundException
+     */
     @Test
     fun delete_user_not_found_throws() {
-        // GIVEN
         whenever(userRepository.findByLogin("noone")).thenReturn(null)
 
-        // WHEN / THEN
         assertThrows<EntityNotFoundException> {
             userService.deleteForLogin("noone")
         }
     }
 
+    /**
+     * Сценарий: попытка смены пароля, когда новый пароль и подтверждение не совпадают,
+     * вызывает IllegalArgumentException
+     */
     @Test
     fun change_password_mismatch_confirmation_throws() {
-        // GIVEN
-        val dto = ChangePasswordDto("old", "new1", "new2")
+        // GIVEN: делаем «ленивый» стаб, чтобы Mockito не считал его лишним
+        val dummyUser = User(
+            id = 100L,
+            name = "Dummy",
+            login = "any",
+            email = "any@e",
+            encryptedPassword = "hash",
+            phoneNumber = "+7000"
+        )
+        lenient()
+            .`when`(userRepository.findByLogin("any"))
+            .thenReturn(dummyUser)
 
         // WHEN / THEN
+        val dto = ChangePasswordDto("old", "new1", "new2")
         assertThrows<IllegalArgumentException> {
             userService.changePassword("any", dto)
         }
     }
 
+    /**
+     * Сценарий: попытка смены пароля с неверным текущим паролем,
+     * вызывает IllegalArgumentException
+     */
     @Test
     fun change_password_wrong_current_throws() {
         // GIVEN
@@ -214,6 +274,10 @@ class UserServiceTest {
         }
     }
 
+    /**
+     * Сценарий: успешная смена пароля при корректном текущем пароле,
+     * проверка сохранения нового хэша и логирования события
+     */
     @Test
     fun change_password_success_and_logs() {
         // GIVEN
