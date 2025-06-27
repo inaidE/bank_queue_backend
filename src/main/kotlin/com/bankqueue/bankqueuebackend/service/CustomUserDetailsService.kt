@@ -13,12 +13,10 @@ class CustomUserDetailsService(
     override fun loadUserByUsername(username: String): UserDetails {
         val user = userRepository.findByLogin(username)
             ?: throw UsernameNotFoundException("User '$username' not found")
-        // Преобразуем вашу сущность User в Spring Security UserDetails.
-        // Если у вас нет ролей, можно просто:
         return org.springframework.security.core.userdetails.User(
             user.login,
-            user.encryptedPassword,     // поле с уже захэшированным паролем
-            emptyList()            // список GrantedAuthority, пустой, если у вас нет ролей
+            user.encryptedPassword,
+            emptyList()
         )
     }
 }
