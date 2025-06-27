@@ -123,7 +123,7 @@ class TicketService(
         dto.scheduledAt?.let { raw ->
             val atMinute = raw.truncatedTo(ChronoUnit.MINUTES)
             val mskTime = moscowLocalTime(raw)  // лучше сразу из raw
-            if (mskTime.hour < 8 || mskTime.hour >= 17) {
+            if (mskTime.hour < 8 || mskTime.hour > 17) {
                 throw IllegalArgumentException(
                     "Время приёма может быть только с 08:00 до 17:00 (МСК), получено: $mskTime"
                 )
