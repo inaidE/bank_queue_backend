@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito
+import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.lenient
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
@@ -156,7 +157,12 @@ class UserServiceTest {
         whenever(passwordEncoder.encode("pwd")).thenReturn("ENC")
 
         val saved = User(10L, "Анна", "anna", "anna@e.com", "ENC", "+79001234567")
-        whenever(userRepository.save(any())).thenReturn(saved)
+
+        doAnswer { invocation ->
+            val toSave = invocation.getArgument<User>(0)
+            toSave.id = 10L
+            toSave
+        }.whenever(userRepository).save(any())
 
         // WHEN
         val dto = userService.register(req)
@@ -165,6 +171,7 @@ class UserServiceTest {
         assertEquals(10L, dto.id)
         assertEquals("Анна", dto.name)
 
+        // AND: событие залогировано
         val cap = argumentCaptor<LogCreateDto>()
         verify(logService).createLog(eq("anna"), cap.capture())
         assertEquals("USER_REGISTERED", cap.firstValue.eventType)
@@ -182,8 +189,16 @@ class UserServiceTest {
         whenever(userRepository.findByLogin("user5")).thenReturn(existing)
 
         val req = UserUpdateDto(name = "NewName", email = "new@e", phoneNumber = "+7111")
-        val updated = User(5L, "NewName", "user5", "new@e", "h", "+7111")
-        whenever(userRepository.save(any())).thenReturn(updated)
+
+        // Вместо simple thenReturn, эмулируем сохранение и возвращаем обновлённый объект:
+        doAnswer { invocation ->
+            val toSave = invocation.getArgument<User>(0)
+            // сохраняем изменения
+            toSave.name = req.name!!
+            toSave.email = req.email!!
+            toSave.phoneNumber = req.phoneNumber!!
+            toSave
+        }.whenever(userRepository).save(any())
 
         // WHEN
         val dto = userService.updateForLogin("user5", req)
@@ -191,11 +206,14 @@ class UserServiceTest {
         // THEN
         assertEquals("NewName", dto.name)
         assertEquals("new@e", dto.email)
+        assertEquals("+7111", dto.phoneNumber)
 
+        // AND: событие залогировано
         val cap = argumentCaptor<LogCreateDto>()
         verify(logService).createLog(eq("user5"), cap.capture())
         assertEquals("USER_UPDATED", cap.firstValue.eventType)
     }
+
 
     /**
      * Сценарий: успешное удаление существующего пользователя
@@ -280,21 +298,22 @@ class UserServiceTest {
      */
     @Test
     fun change_password_success_and_logs() {
-        // GIVEN
         val user = User(9L, "U9", "u9", "u9@e", "HASH1", "+7000")
         whenever(userRepository.findByLogin("u9")).thenReturn(user)
         whenever(passwordEncoder.matches("old", "HASH1")).thenReturn(true)
         whenever(passwordEncoder.encode("new")).thenReturn("HASH2")
 
-        val saved = User(9L, "U9", "u9", "u9@e", "HASH2", "+7000")
-        whenever(userRepository.save(any())).thenReturn(saved)
+        doAnswer { invocation ->
+            val toSave = invocation.getArgument<User>(0)
+            toSave.encryptedPassword = "HASH2"
+            toSave
+        }.whenever(userRepository).save(any())
 
-        // WHEN
-        userService.changePassword("u9", ChangePasswordDto("old", "new", "new"))
+        userService.changePassword("u9", ChangePasswordDto("old",  "new", "new"))
 
-        // THEN
         val cap = argumentCaptor<LogCreateDto>()
         verify(logService).createLog(eq("u9"), cap.capture())
         assertEquals("USER_PASSWORD_UPDATED", cap.firstValue.eventType)
     }
+
 }

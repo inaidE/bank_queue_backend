@@ -56,7 +56,7 @@ class TicketControllerTest {
     @Test
     @WithMockUser(username = "user1", roles = ["USER"])
     fun `GET my tickets returns list`() {
-        val now = OffsetDateTime.parse("2025-06-27T10:15:30+00:00")
+        val now = OffsetDateTime.parse("2026-06-27T10:15:30+00:00")
         val dto = TicketResponseDto(
             id          = 1L,
             userId      = 42L,
@@ -79,7 +79,7 @@ class TicketControllerTest {
     @Test
     @WithMockUser(username = "user1", roles = ["USER"])
     fun `POST create ticket returns 201 and Location header`() {
-        val scheduled = OffsetDateTime.parse("2025-06-27T12:00:00+00:00")
+        val scheduled = OffsetDateTime.parse("2026-06-27T12:00:00+00:00")
         val createDto = TicketCreateDto(
             address     = "123 Main St",
             ticketType  = "STANDARD",

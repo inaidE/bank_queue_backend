@@ -163,19 +163,25 @@ class TicketServiceTest {
      */
     @Test
     fun create_ticket_valid_saves_and_logsEvent() {
-        // GIVEN: все условия валидны
+        // GIVEN
         val slot = tomorrowUtcAt(11)
         whenever(userRepository.findByLogin("oleg")).thenReturn(
             User(3L, "Олег", "oleg", "oleg@e", "pw", "+79998887766")
         )
         whenever(ticketRepository.existsByAddressAndScheduledAt(any(), any())).thenReturn(false)
+
         whenever(ticketRepository.findMaxTicketCodeByType("Вклад")).thenReturn("A1")
-        whenever(ticketRepository.save(any())).thenAnswer {
-            (it.arguments[0] as Ticket).apply { id = 200L }
-        }
+        doAnswer { invocation ->
+            val toSave = invocation.getArgument<Ticket>(0)
+            toSave.id = 200L
+            toSave
+        }.whenever(ticketRepository).save(any())
 
         // WHEN
-        val dto = ticketService.createForUser("oleg", TicketCreateDto("Lenina 3", "Вклад", slot))
+        val dto = ticketService.createForUser(
+            "oleg",
+            TicketCreateDto("Lenina 3", "Вклад", slot)
+        )
 
         // THEN: тикет сохранён
         assertEquals(200L, dto.id)
@@ -187,6 +193,7 @@ class TicketServiceTest {
         assertEquals("TICKET_CREATED", cap.firstValue.eventType)
         assertEquals(mapOf("userId" to 3L, "ticketId" to 200L), cap.firstValue.details)
     }
+
 
     /**
      * Сценарий: попытка удаления тикета для несуществующего пользователя
